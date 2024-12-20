@@ -23,12 +23,17 @@ const Task = sequelize.define ("Task", {
         type: DataTypes.ENUM("To-Do", "In Progress", "Completed"),
         allowNull: false
     },
+    userId:{
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
     tag: {
         type: DataTypes.STRING,
         allowNull: false
     },
     comment: {
         type: DataTypes.TEXT,
+        allowNull: false
     }
 });
 

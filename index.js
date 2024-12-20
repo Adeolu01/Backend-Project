@@ -5,30 +5,47 @@ const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
+
+
+
 const app = express();
 app.use(express.json());
 const{ User, Task} = require("./models/association.js");
-const { Console } = require("console");
-const { where } = require("sequelize");
+// const { Console } = require("console");
+// const { where } = require("sequelize");
+
 
 // USER SECTION
 // To register a new user
-app.post("/register", async(req, res) => {
+app.post("/register", async(req, res) => {    
     try {
         // Accept input from the body
-        const {name, email, password, role} = req.body;
+        const {name, email, password} = req.body;
+
         // Check if all fields are filled
-        if(!name || !email || !password || !role){
+        if(!name || !email || !password){
             return res.status(400).json({Message : "Please input all fields correctly!"});
         }
+
         const userExists = await User.findOne({where : {email}});
-        if(!userExists){
-            const hashedPassword = await bcrypt.hash(password, 10);
-            const newUser = {name, email, password : hashedPassword, role};
-            await User.create(newUser);
-            return res.status(201).json({Message : "User created successfully"});
+        if(userExists){
+            return res.status(201).json({Message : "User already exists"});
         }
-        return res.json({Message : "User already exists!"});
+
+        if(password.length < 8) {
+            return res.status(404).json({ messsage: 'Password is too short'});
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUser = {
+            name,
+            email,
+            password: hashedPassword,
+            role: 'user'
+        };
+
+        await User.create(newUser);
+        return res.json({Message : "User created successfully!"});
         
     } catch (error) {
         console.log(error);
@@ -61,11 +78,51 @@ app.post("/login", async(req, res) => {
         );
         console.log(accessToken);
 
-        return res.status(200).json({message: "Login Successfully", accessToken});
+        return res.status(200).json({message: "Login Successfully"});
     }catch (error) {
         return res.status(500).json({message:""})
     }
 });
+
+// Only Admins can create other Admins
+app.post('/create-admin/:userId', async (req, res) => {
+    const { userId } = req.params;
+    const { name, email, password } = req.body;
+    
+    try{
+        const user = await User.findOne( { where: { id: userId}});
+
+        if(!user) {
+            return res.status(404).json({ messsage: "User does not exist"});
+        }
+
+        if(user.role !== "admin") {
+            return res.status(403).json({ message: "Unauthorised Request"});
+        }
+
+        const existingUser = await User.findOne({ where: { email}});
+        if(existingUser) {
+            return res.status(400).json({ message: "Email address already exists"});
+        };
+        
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const newUser = {
+            name,
+            email,
+            password: hashedPassword,
+            role: 'admin'
+        };
+
+        await User.create(newUser);
+
+        return res.status(201).json({ message: "User created successfully"});
+    } catch (error) {
+        res.status(500).json({ message: `Internal server Error: ${error.message}`})
+        console.log(error);
+    }
+    
+})
 
 app.delete("/user/:id", async (req, res) => {
     try {
@@ -84,107 +141,92 @@ app.delete("/user/:id", async (req, res) => {
 });
 
 //TASK SECTION
-app.post("/add-task", async (req, res) => {
-    try {
-        const {title, description, status, due_date, createdFor} = req.body;
-        const isUserValid = await User.findByPk(createdFor);
+// User can assign tasks to themselves or others
 
-        if (!isUserValid) {
-            return res.status(404).json({message: `User with ID: ${createdFor} does not exist`})
+app.post("/add-task/:userId", async (req, res) => {
+    try {
+        const {userId} = req.params;
+        const {title, description, status, dueDate, tag, comment} = req.body;
+        const user = await User.findByPk(userId);
+
+        if (!user) {
+            return res.status(404).json({message: `User with ID: ${userId} does not exist`})
         }
 
         const createTask = {
             title,
             description,
             status,
-            due_date,
-            createdFor
+            dueDate,
+            userId: user.id,
+            tag,
+            comment
         };
 
         await Task.create(createTask);
-        return res.status(200).json({message: "Task successfully created"})
+        return res.status(201).json({message: "Task successfully created"})
     }catch (error) {
-        return res.status(500).json({message: "" + error.message});
+        res.status(500).json({message: "Internal Server Error" + error.message});
+        console.log(error);
     }
 });
 
-app.put("/task/:taskId", async (req, res) => {
+// Users can update the status of their own tasks and Admins can update the status of any task
+app.patch("/task/:userId/:taskId", async (req, res) => {
     try {
-      const { status, userId } = req.body;
-      const { taskId } = req.params;
-  
-      const taskIdToNum = parseInt(taskId);
-      if (isNaN(taskIdToNum)) {
-        return res.status(400).json({ message: "Invalid task ID" });
-      }
-  
-      const isUserValid = await User.findByPk(userId);
-      const isTaskValid = await Task.findByPk(taskIdToNum);
-  
-      if (!status || !userId) {
+      const { status } = req.body;
+      const { taskId, userId } = req.params;
+
+    if (!status || !userId || !taskId) {
         return res
           .status(400)
-          .json({ message: "Status and userId are required" });
+          .json({ message: "Status, taskId and userId are required" });
       }
-  
-      if (!isUserValid) {
+
+      const user = await User.findByPk({ where: {id: userId}});
+        if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-  
-      if (isTaskValid) {
-        if (
-          isUserValid.role === "admin" ||
-          isTaskValid.createdFor === isUserValid.id
-        ) {
-          try {
-            await Task.update(
-              {
-                status: status,
-              },
-              {
-                where: { id: taskIdToNum },
-              }
-            );
-            return res.status(200).json({ message: "Task updated successfully" });
-          } catch (error) {
-            return res.status(500).json({ message: "" + message.error });
-          }
-        } else {
-          return res.status(400).json({
-            message: "You do not have permission to update this task status",
-          });
-        }
-      } else {
+
+    const task = await Task.findByPk({ where: { id: taskId}});
+      if (!task) {
         return res.status(404).json({ message: "Task not found" });
       }
+
+      if(user.role == 'admin') {
+        await Task.update({ status}, {where: { id: taskId}});
+        return res.status(200).json({ message: `Task updated successfully`});
+      };
+  
+      if(user.id !== task.userId) {
+        return res.status(403).json({ message: "User cannot edit status of this"})
+      }
+
+    await Task.update({ status}, {where: { id: taskId}});
+    return res.status(200).json({ message: "Task updated successfully"});
+      
     } catch (error) {
-      return res.status(500).json({ message: +message.error });
+      res.status(500).json({ message: "Internal server Error" + error.message });
+      console.log(error);
     }
   });
 
-  app.delete("/delete-task/:taskId", async (req, res) => {
+  app.delete("/delete-task/:userId/:taskId", async (req, res) => {
     try {
-      const { userId } = req.body;
-      const { taskId } = req.params;
+      const { taskId, userId } = req.params;
   
-      const taskIdToNum = parseInt(taskId);
-      if (isNaN(taskIdToNum)) {
-        return res.status(400).json({ message: "Invalid task ID" });
-      }
   
-      const ifUserExists = await User.findByPk(userId);
-      const ifTaskExists = await Task.findByPk(taskIdToNum);
+      const user = await User.findByPk(userId);
+      const task = await Task.findByPk(taskId);
   
-      if (!ifUserExists) {
+      if (!user) {
         return res.status(400).json({ message: "User does not exist" });
       }
   
-      if (ifTaskExists) {
-        if (
-          ifUserExists.role === "admin" ||
-          ifTaskExists.createdFor === ifUserExists.id
-        ) {
-          await Task.destroy({ where: { id: taskIdToNum } });
+      if (task) {
+          if (user.role === "admin" || task.userId === user.id)
+        {
+          await Task.destroy({ where: { id: taskId } });
           return res.status(200).json({ message: "Task deleted successfully" });
         } else {
           return res
@@ -195,9 +237,11 @@ app.put("/task/:taskId", async (req, res) => {
         return res.status(400).json({ message: "Task does not exist" });
       }
     } catch (error) {
-      return res
+       res
         .status(500)
-        .json({ message: "Internal servver error " + error.message });
+        .json({ message: "Internal server error " + error.message });
+        
+        console.log(error);
     }
   });
 
