@@ -4,6 +4,7 @@ const sequelize = require("./config/sequelize");
 const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const comment = require("./models/comment.js")
 
 
 
@@ -317,28 +318,20 @@ app.get('/tasks/:taskId', async (req, res) => {
   };
 });
 
-  // ADDING COMMENTS TO TASK
+//GET COMMENT
+//all comment
+app.get('/comments', async (req, res) => {
 
-app.post("/task-comment", async (req, res) => {
-    try {
-      const { comment, createdFor } = req.body;
-      
-  
-      const ifTaskExists = await Task.findByPk(createdFor);
-      if (ifTaskExists) {
-        const newComment = {
-          comment,
-          createdFor,
-        };
-        await Comment.create(newComment);
-        return res.status(200).json({ message: "Comment added successfully" });
-      } else {
-        return res.status(200).json({ message: "Task does not exist" });
-      }
-    } catch (error) {
-      return res.status(500).json({ message: "" + error.message });
-    }
-  });
+  try{
+      const comments = await Comment.findAll();
+
+      return res.status(200).json({ message: `Comments retrieved successfully`, comments});
+
+  }catch (error) {
+      res.status(500).json({ message: `Internal server error: ${error.message}` });
+      console.log(error);
+  };
+});
   
   app.put("/task-comment/:commentId", async (req, res)=>{
       const {comment, createdFor, createdBy} = req.body
@@ -346,46 +339,6 @@ app.post("/task-comment", async (req, res) => {
   
       
   });
-
-//TAGGING SYSTEM
-//adding tags
-
-app.patch('/tasks/update-tags/:taskId', async (req, res) => {
-  const { taskId } = req.params;
-  const { tags } = req.body;
-
-  try {
-      await Task.update({tags}, { where: { id: taskId}});
-      return res.status(200).json({ message: `Tag added successfully`});
-  }catch (error) {
-      res.status(500).json({ message: `Internal server error ${error.message}` });
-      console.log(error);
-  };
-});
-
-//filter tasks by tags
-app.get('/tasks/get-by-tags/:tag', async (req, res) => {
-  const { tag } = req.params;
-  // tag.toLowerCase();
-
-  try {
-      const tasks = await Task.findAll({ where: {tags: tag}});
-      
-      if(!tasks) {
-          return res.status(400).json({ message: `No task found with the tag ${tag}`});
-      }
-
-      if(tasks.length === 1) {
-          return res.status(200).json({ message: `1 task found with the tag`, tasks});
-      };
-
-      return res.status(200).json({ message: `${tasks.length} tasks found with the tag`, tasks});
-
-  }catch (error) {
-      res.status(500).json({ message: `Internal server error ${error.message}` });
-      console.log(error);
-  };
-});
 
 
 

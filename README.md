@@ -35,11 +35,11 @@ Deployment and Maintenance
 Deploy the back-end to servers or cloud platforms (e.g., AWS, Azure).
 Monitor and maintain the back-end to ensure it remains operational.
 
-npm init -yes
+User Management: •⁠ ⁠User registration and login with JWT authentication. •⁠ ⁠User roles: Admin and Regular User. •⁠ ⁠Only Admins can create other Admins.
 
-npm i express, sequelize, mysql2, bcrypt dotenv jsonwebtoken and so on.
+Task Management: •⁠ ⁠Users can create tasks with a title, description, due date, and status (e.g., To-Do, In Progress, Completed). •⁠ ⁠Users can assign tasks to themselves or others. •⁠ ⁠Users can update the status of their own tasks. •⁠ ⁠Admins can update the status of any task.
 
-npm i nodemon (to save my work to be able to identify any error that may occur)
+Tagging System: •⁠ ⁠Users can add tags to tasks (e.g., "Urgent", "Bug", "Feature"). •⁠ ⁠Users can filter tasks by tag.
 
-What is Nodemon?
-Nodemon is a development tool for Node.js applications. It automatically restarts your server or application whenever it detects changes in the files, saving you from manually stopping and starting the server every time you make a change.
+Commenting System: •⁠ ⁠Users can add comments to tasks. •⁠ ⁠Users can edit or delete their own comments. •⁠ ⁠Admins can delete any comment.
+Database: •⁠ ⁠MySQL was used with migrations for setting up the database schema.

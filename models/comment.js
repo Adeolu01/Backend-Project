@@ -1,25 +1,24 @@
-const { Sequelize, DataTypes } = require("sequelize");
-const sequelize = require("../config/sequelize");
-const Task = require("./task");
+const { Sequelize, DataTypes } = require('sequelize');
+const sequelize = require('../config/sequelize');
 
-const Comment = sequelize.define("comment", {
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true,
-  },
-  comment: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  createdFor: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: Task,
-      key: "id",
+const Comment = sequelize.define('Comment', {
+    id: {
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true
     },
-  },
+    comment: {
+        type: DataTypes.TEXT
+    },
+    userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    taskId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    }
 });
+
 
 module.exports = Comment;
